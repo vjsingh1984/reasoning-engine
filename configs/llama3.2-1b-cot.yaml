@@ -1,0 +1,52 @@
+model:
+  name: "meta-llama/Llama-3.2-1B"
+  torch_dtype: "bfloat16"
+  trust_remote_code: false
+
+quantization:
+  load_in_4bit: true
+  bnb_4bit_compute_dtype: "bfloat16"
+  bnb_4bit_quant_type: "nf4"
+  bnb_4bit_use_double_quant: true
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+
+data:
+  system_message: "You are a helpful assistant. Solve problems step by step."
+  sources:
+    - name: "meta-math/MetaMathQA"
+      split: "train"
+      max_samples: 50000
+      prompt_field: "query"
+      response_field: "response"
+    - name: "Open-Orca/OpenOrca"
+      split: "train"
+      max_samples: 20000
+      prompt_field: "question"
+      response_field: "response"
+
+training:
+  output_dir: "outputs/llama3.2-1b-cot"
+  num_epochs: 1
+  per_device_batch_size: 4
+  gradient_accumulation_steps: 4
+  learning_rate: 2.0e-4
+  lr_scheduler: "cosine"
+  warmup_ratio: 0.03
+  max_seq_length: 2048
+  bf16: true
+  logging_steps: 10
+  save_steps: 500
+  eval_steps: 500
+
+eval:
+  tasks: ["gsm8k", "arc_challenge"]
+  num_fewshot: 5
+
+hub:
+  model_id: "vsingh/llama3.2-1b-cot-reasoning"
+  push: true
