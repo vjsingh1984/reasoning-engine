@@ -102,6 +102,6 @@ print(tokenizer.decode(outputs[0], skip_special_tokens=True))
 
 ## Framework
 
-Built with the [llm-from-scratch](https://github.com/vjsingh1984/llm-from-scratch) fine-tuning framework.
+Built with the [llm-from-scratch](https://github.com/vjsingh1984/reasoning-engine) fine-tuning framework.
 """
         return card
