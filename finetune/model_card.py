@@ -7,7 +7,11 @@ class ModelCardGenerator:
     """Generates a HuggingFace model card from config and evaluation metrics."""
 
     @staticmethod
-    def generate(config: FinetuneConfig, eval_results: dict = None) -> str:
+    def generate(
+        config: FinetuneConfig,
+        eval_results: dict = None,
+        train_stats: dict = None,
+    ) -> str:
         """Generate a model card markdown string."""
         sources = ", ".join(s.name for s in config.data.sources)
         sample_counts = " + ".join(
@@ -27,7 +31,24 @@ class ModelCardGenerator:
                     "| Task | Metric | Score |\n"
                     "|------|--------|-------|\n"
                     + "\n".join(rows)
+                    + "\n"
                 )
+
+        train_results = ""
+        if train_stats:
+            parts = []
+            if train_stats.get("final_loss") is not None:
+                parts.append(f"- **Final training loss**: {train_stats['final_loss']:.4f}")
+            if train_stats.get("total_steps"):
+                parts.append(f"- **Total steps**: {train_stats['total_steps']:,}")
+            if train_stats.get("train_runtime"):
+                hours = train_stats["train_runtime"] / 3600
+                parts.append(f"- **Training time**: {hours:.1f} hours")
+            if parts:
+                train_results = "## Training Results\n\n" + "\n".join(parts) + "\n"
+
+        datasets_yaml = "\n  - ".join(s.name for s in config.data.sources)
+        hub_user = config.hub.model_id.split("/")[0] if "/" in config.hub.model_id else "user"
 
         card = f"""---
 license: apache-2.0
@@ -38,7 +59,7 @@ tags:
   - qlora
   - fine-tuned
 datasets:
-  - {sources.replace(', ', chr(10) + '  - ')}
+  - {datasets_yaml}
 pipeline_tag: text-generation
 ---
 
@@ -51,13 +72,14 @@ Fine-tuned **{config.model.name}** for chain-of-thought reasoning using QLoRA.
 - **Method**: QLoRA (4-bit NF4 quantization + LoRA r={config.lora.r}, alpha={config.lora.alpha})
 - **Data**: {sample_counts}
 - **Epochs**: {config.training.num_epochs}
-- **Batch size**: {config.training.per_device_batch_size} x {config.training.gradient_accumulation_steps} gradient accumulation
+- **Effective batch size**: {config.training.per_device_batch_size * config.training.gradient_accumulation_steps} ({config.training.per_device_batch_size} x {config.training.gradient_accumulation_steps} gradient accumulation)
 - **Learning rate**: {config.training.learning_rate} ({config.training.lr_scheduler} schedule)
 - **Max sequence length**: {config.training.max_seq_length}
 - **Precision**: {"bfloat16" if config.training.bf16 else "float32"}
+- **Hardware**: AMD ROCm / NVIDIA CUDA (trained on AMD Radeon AI PRO R9700)
 
+{train_results}
 {eval_table}
-
 ## Usage
 
 ```python
@@ -80,6 +102,6 @@ print(tokenizer.decode(outputs[0], skip_special_tokens=True))
 
 ## Framework
 
-Built with the [llm-from-scratch](https://github.com/vsingh/llm-from-scratch) fine-tuning framework.
+Built with the [llm-from-scratch](https://github.com/vjsingh1984/llm-from-scratch) fine-tuning framework.
 """
         return card

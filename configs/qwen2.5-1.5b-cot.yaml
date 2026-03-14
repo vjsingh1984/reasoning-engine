@@ -49,5 +49,5 @@ eval:
   num_fewshot: 5
 
 hub:
-  model_id: "vsingh/qwen2.5-1.5b-cot-reasoning"
+  model_id: "vjsingh1984/qwen2.5-1.5b-cot-reasoning"
   push: true

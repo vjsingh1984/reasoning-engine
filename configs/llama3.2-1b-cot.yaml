@@ -48,5 +48,5 @@ eval:
   num_fewshot: 5
 
 hub:
-  model_id: "vsingh/llama3.2-1b-cot-reasoning"
+  model_id: "vjsingh1984/llama3.2-1b-cot-reasoning"
   push: true
