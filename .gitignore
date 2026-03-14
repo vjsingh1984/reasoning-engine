@@ -59,6 +59,10 @@ outputs/
 wandb/
 *.log
 
+# Tool configs
+.claude/
+CLAUDE.md
+
 # MLX specific
 *.npy
 mlx_data/
