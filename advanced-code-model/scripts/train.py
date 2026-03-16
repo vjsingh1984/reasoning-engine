@@ -1,15 +1,15 @@
 """
-Train language model using PyTorch with MPS backend.
+Train language model using PyTorch (CUDA/ROCm/CPU).
 
 Stage 1: Language pretraining on TinyStories
 Stage 2: Code fine-tuning on bash scripts
 
 Usage:
     # Stage 1: Language pretraining
-    python scripts/train.py --stage language --model-size tiny
+    python scripts/train.py --stage language --model-size small --device rocm
 
     # Stage 2: Code fine-tuning
-    python scripts/train.py --stage code --model-size tiny --checkpoint models/language_model.pth
+    python scripts/train.py --stage code --model-size small --device rocm --checkpoint models/language_model_best.pth
 """
 
 import argparse
@@ -35,15 +35,16 @@ from model.mamba import create_mamba_model
 from model.moe_transformer import create_moe_model
 from model.hybrid import create_hybrid_model
 
+# Use the project's device abstraction for CUDA/ROCm/CPU support
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from device import get_device as _get_device, get_device_info, print_device_info
 
-def get_device():
-    """Get the best available device (MPS, CUDA, or CPU)."""
-    if torch.backends.mps.is_available():
-        return torch.device('mps')
-    elif torch.cuda.is_available():
-        return torch.device('cuda')
-    else:
-        return torch.device('cpu')
+
+def get_device(device_str=None):
+    """Get compute device using project's device abstraction (CUDA/ROCm/CPU)."""
+    device = _get_device(device_str)
+    print_device_info(device)
+    return device
 
 
 def load_datasets(stage: str, data_dir: Path, device: torch.device,
@@ -65,6 +66,7 @@ def load_datasets(stage: str, data_dir: Path, device: torch.device,
     stage_data_map = {
         "language": ("language_train.npy", "language_val.npy"),
         "code": ("code_train.npy", "code_val.npy"),
+        "cot": ("cot_train.npy", "cot_val.npy"),
         "tool_calling": ("tool_calling_train.npy", "tool_calling_val.npy"),
         "multimodal": ("multimodal_train_tokens.npy", "multimodal_val_tokens.npy"),
         "domain": ("domain_train.npy", "domain_val.npy"),
@@ -323,9 +325,9 @@ def train_epoch(
             scheduler.step()
             optimizer.zero_grad()
 
-            # Clear MPS cache to prevent memory accumulation
-            if device.type == 'mps':
-                torch.mps.empty_cache()
+            # Clear GPU cache to prevent memory accumulation
+            if device.type == 'cuda':
+                torch.cuda.empty_cache()
 
         # Update progress bar
         current_lr = scheduler.get_last_lr()[0]
@@ -382,12 +384,14 @@ def load_checkpoint(model: nn.Module, optimizer: torch.optim.Optimizer, path: Pa
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Train language model with PyTorch+MPS")
-    parser.add_argument("--stage", type=str, required=True, choices=["language", "code", "tool_calling"],
-                        help="Training stage: language (Stage 1), code (Stage 2), tool_calling (Stage 3)")
-    parser.add_argument("--model-size", type=str, default="tiny",
-                        choices=["tiny", "medium", "large", "xlarge"],
-                        help="Model size")
+    parser = argparse.ArgumentParser(description="Train language model with PyTorch (CUDA/ROCm/CPU)")
+    parser.add_argument("--stage", type=str, required=True, choices=["language", "code", "cot", "tool_calling"],
+                        help="Training stage: language (Stage 1), code (Stage 2), cot (CoT fine-tuning), tool_calling (Stage 3)")
+    parser.add_argument("--model-size", type=str, default="small",
+                        choices=["small", "250m", "tiny", "medium", "large", "xlarge"],
+                        help="Model size (small=~100M, 250m=250M, tiny=124M, medium=350M)")
+    parser.add_argument("--device", type=str, default=None,
+                        help="Device: cuda, rocm, cpu, or auto-detect (default)")
     parser.add_argument("--architecture", type=str, default="dense",
                         choices=["dense", "mamba", "moe", "hybrid"],
                         help="Model architecture (dense=Transformer, mamba=SSM, moe=Sparse, hybrid=Mamba+Attention)")
@@ -439,8 +443,7 @@ def main():
     args = parser.parse_args()
 
     # Get device
-    device = get_device()
-    print(f"Using device: {device}")
+    device = get_device(args.device)
     print()
 
     # Paths
@@ -454,10 +457,7 @@ def main():
     print()
 
     # Load config
-    if args.model_size == "tiny":
-        config = get_tiny_config()
-    else:
-        config = get_config(args.model_size)
+    config = get_config(args.model_size)
 
     # Apply architecture options if requested
     if args.use_rmsnorm:
@@ -555,9 +555,11 @@ def main():
     # Create GradScaler for mixed precision training
     scaler = None
     if args.use_amp:
-        if device.type == 'mps':
-            print("⚠ Warning: AMP has limited support on MPS. Using it anyway but may not see full benefits.")
-        scaler = GradScaler(device.type)
+        if device.type == 'cuda':
+            scaler = GradScaler("cuda")
+            print("AMP enabled (bfloat16/float16 mixed precision)")
+        else:
+            print("Warning: AMP only supported on CUDA/ROCm GPUs. Skipping.")
 
     # Training info
     effective_batch_size = args.batch_size * args.gradient_accumulation_steps

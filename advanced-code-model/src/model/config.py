@@ -1,11 +1,12 @@
 """
-Model configuration classes for production-scale code generation.
+Model configuration classes for code generation models.
 
-Provides pre-configured model sizes optimized for Apple Silicon:
+Provides pre-configured model sizes:
+- Small: ~100M parameters (fast training, good for learning)
 - Tiny: 124M parameters (testing)
-- Medium: 350M parameters (M1 Max)
-- Large: 780M parameters (M1 Ultra)
-- XLarge: 1.5B parameters (M2 Ultra)
+- Medium: 350M parameters
+- Large: 780M parameters
+- XLarge: 1.5B parameters
 """
 
 from dataclasses import dataclass
@@ -129,6 +130,50 @@ class ModelConfig:
         return cls(**config_dict)
 
 
+def get_small_config() -> ModelConfig:
+    """
+    Small model configuration (~100M parameters).
+
+    Ideal for:
+    - Learning and experimentation
+    - Fast training cycles on consumer GPUs
+    - Bash script generation with reasonable quality
+
+    Memory usage: ~1.5GB with batch_size=8
+    """
+    return ModelConfig(
+        vocab_size=32000,
+        d_model=640,
+        n_layers=12,
+        n_heads=10,
+        d_ff=2560,
+        max_seq_len=1024,
+        dropout=0.1,
+    )
+
+
+def get_250m_config() -> ModelConfig:
+    """
+    250M parameter model — minimum viable for coherent code generation.
+
+    Sweet spot for:
+    - Single-GPU training on consumer hardware
+    - Narrow-domain generation (bash scripts)
+    - Instruction following with ChatML
+
+    Memory usage: ~4GB with batch_size=4
+    """
+    return ModelConfig(
+        vocab_size=32000,
+        d_model=896,
+        n_layers=20,
+        n_heads=14,
+        d_ff=3584,
+        max_seq_len=1024,
+        dropout=0.1,
+    )
+
+
 def get_tiny_config() -> ModelConfig:
     """
     Tiny model configuration (124M parameters).
@@ -237,6 +282,8 @@ def get_config(size: str = 'medium') -> ModelConfig:
         ValueError: If size is not recognized
     """
     configs = {
+        'small': get_small_config,
+        '250m': get_250m_config,
         'tiny': get_tiny_config,
         'medium': get_medium_config,
         'large': get_large_config,

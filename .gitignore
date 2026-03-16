@@ -46,6 +46,12 @@ data/*.json
 *.pth
 *.safetensors
 
+# Advanced code model raw data
+advanced-code-model/data/bash/raw/scripts/*.sh
+advanced-code-model/data/cot/*.json
+advanced-code-model/data/language/raw/
+advanced-code-model/data/tokenizer_corpus.txt
+
 # Model checkpoints
 checkpoints/
 models/

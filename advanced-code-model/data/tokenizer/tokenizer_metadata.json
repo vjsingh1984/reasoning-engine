@@ -1,12 +1,13 @@
 {
   "vocab_size": 32000,
-  "training_examples": 11244379,
-  "language_examples": 11242600,
-  "code_examples": 1779,
-  "special_tokens": [
-    "<PAD>",
-    "<UNK>",
-    "<BOS>",
-    "<EOS>"
-  ]
+  "special_tokens": {
+    "<PAD>": 0,
+    "<UNK>": 1,
+    "<BOS>": 2,
+    "<EOS>": 3,
+    "<|im_start|>": 4,
+    "<|im_end|>": 5
+  },
+  "include_cot": true,
+  "pre_tokenizer": "ByteLevel"
 }
