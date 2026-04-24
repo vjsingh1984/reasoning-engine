@@ -1,0 +1,27 @@
+INSTRUCTION-FOLLOWING BASELINE TEST
+Model: code_model_best.pth (epoch 10, completion-trained only)
+Date: 2026-04-21
+
+Average score: 58.3% - FAIR
+
+Test Results:
+  Simple function: 66.7% - collapses into "factorial, factorial, factorial..."
+  Bash script: 66.7% - echo loops, no actual backup logic
+  Loop: 66.7% - "10, 10, 11, 10, 11..." repetition
+  Array sum: 33.3% - "arr, arr, arr, arr..." token loops
+  File read: 66.7% - "#" walls, no "wc -l"
+  Conditional: 33.3% - "'odd'odd'odd'odd..." repetition
+  Error handling: 66.7% - echo loops, incomplete
+  List comprehension: 33.3% - "#" walls, no actual code
+
+Key Issues:
+  - Model recognizes instruction intent (starts with correct tokens)
+  - Immediately collapses into repetition after 2-3 tokens
+  - No end-token awareness or proper stopping
+  - This is EXPECTED for completion-only trained model
+
+Post-SFT Target:
+  - Average score > 80%
+  - Complete, coherent functions/scripts
+  - No repetition loops
+  - Proper stopping at <|im_end|>
